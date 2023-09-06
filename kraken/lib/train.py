@@ -22,11 +22,12 @@ import warnings
 import numpy as np
 import torch.nn.functional as F
 import pytorch_lightning as pl
+import torchvision
 
 from os import PathLike
 from functools import partial
 from torch.multiprocessing import Pool
-from torchmetrics import CharErrorRate, WordErrorRate
+from torchmetrics.text import CharErrorRate, WordErrorRate
 from torchmetrics.classification import MultilabelAccuracy, MultilabelJaccardIndex
 from torch.optim import lr_scheduler
 from typing import Callable, Dict, Optional, Sequence, Union, Any, Literal
@@ -44,9 +45,9 @@ from kraken.lib.exceptions import KrakenInputException, KrakenEncodeException
 
 from torch.utils.data import DataLoader, random_split, Subset
 
-
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
+#logger.setLevel(logging.DEBUG)
 
 def _star_fun(fun, kwargs):
     try:
@@ -230,6 +231,11 @@ class RecognitionModel(pl.LightningModule):
         """
         super().__init__()
         hyper_params_ = default_specs.RECOGNITION_HYPER_PARAMS.copy()
+    
+        # NPR
+        logger.setLevel('DEBUG')
+        logger.info(f'logging level = {logger.getEffectiveLevel()}')
+
         if model:
             logger.info(f'Loading existing model from {model} ')
             self.nn = vgsl.TorchVGSLModel.load_model(model)
@@ -248,6 +254,7 @@ class RecognitionModel(pl.LightningModule):
         if hyper_params:
             hyper_params_.update(hyper_params)
         self.save_hyperparameters(hyper_params_)
+        logger.debug("Hyperparameters: ", self.hparams)
 
         self.reorder = reorder
         self.append = append
@@ -424,6 +431,9 @@ class RecognitionModel(pl.LightningModule):
                                augmentation=self.hparams.augment,
                                **kwargs)
 
+        # TODO: Setting the num_workers property > 1 currently involves parsing the samples
+        # which is a pb for pre-parsed data
+        # Possible solution: skip the block below
         if (self.num_workers and self.num_workers > 1) and self.format_type != 'binary':
             with Pool(processes=self.num_workers) as pool:
                 for im in pool.imap_unordered(partial(_star_fun, dataset.parse), training_data, 5):
@@ -477,6 +487,7 @@ class RecognitionModel(pl.LightningModule):
         for offset in batch['target_lens']:
             decoded_targets.append(''.join([x[0] for x in self.val_codec.decode([(x, 0, 0, 0) for x in batch['target'][idx:idx+offset]])]))
             idx += offset
+        logger.info(f"pred={pred}, decoded_targets={decoded_targets}")
         self.val_cer.update(pred, decoded_targets)
         self.val_wer.update(pred, decoded_targets)
 
@@ -492,7 +503,7 @@ class RecognitionModel(pl.LightningModule):
         word_accuracy = 1.0 - self.val_wer.compute()
 
         if accuracy > self.best_metric:
-            logger.debug(f'Updating best metric from {self.best_metric} ({self.best_epoch}) to {accuracy} ({self.current_epoch})')
+            logger.info(f'Updating best metric from {self.best_metric} ({self.best_epoch}) to {accuracy} ({self.current_epoch})')
             self.best_epoch = self.current_epoch
             self.best_metric = accuracy
         logger.info(f'validation run: total chars {self.val_cer.total} errors {self.val_cer.errors} accuracy {accuracy}')
@@ -608,7 +619,8 @@ class RecognitionModel(pl.LightningModule):
     def train_dataloader(self):
         return DataLoader(self.train_set,
                           batch_size=self.hparams.batch_size,
-                          num_workers=self.num_workers,
+                          #num_workers=self.num_workers,
+                          num_workers=12, # NPR: QaD fix to allow for multiple-worker loader wo/ sample parsing
                           pin_memory=True,
                           shuffle=True,
                           collate_fn=collate_sequences)
@@ -617,7 +629,8 @@ class RecognitionModel(pl.LightningModule):
         return DataLoader(self.val_set,
                           shuffle=False,
                           batch_size=self.hparams.batch_size,
-                          num_workers=self.num_workers,
+                          #num_workers=self.num_workers,
+                          num_workers=12, # NPR: QAD fix to allow for multiple-worker loader wo/ sample parsing
                           pin_memory=True,
                           collate_fn=collate_sequences,
                           worker_init_fn=_validation_worker_init_fn)

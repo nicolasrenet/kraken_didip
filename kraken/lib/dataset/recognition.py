@@ -441,6 +441,7 @@ class GroundTruthDataset(Dataset):
                  reorder: Union[bool, str] = True,
                  im_transforms: Callable[[Any], torch.Tensor] = transforms.Compose([]),
                  augmentation: bool = False) -> None:
+                 #text_transform: Callable[[str],str] ) -> None:
         """
         Reads a list of image-text pairs and creates a ground truth set.
 
@@ -466,7 +467,9 @@ class GroundTruthDataset(Dataset):
             im_transforms: Function taking an PIL.Image and returning a
                            tensor suitable for forward passes.
             augmentation: Enables augmentation.
+            #text_transform: Text transform
         """
+        print(f'GroundTruthDataset: normalization={normalization}')
         self.suffix = suffix
         self.split = partial(F_t.suffix_split, split=split, suffix=suffix)
         self._images = []  # type:  Union[List[Image], List[torch.Tensor]]
@@ -516,8 +519,10 @@ class GroundTruthDataset(Dataset):
         Args:
             image (str): Input image path
         """
+        logger.debug(f"{__class__}.parse()")
         with open(self.split(image), 'r', encoding='utf-8') as fp:
             text = fp.read().strip('\n\r')
+            print(f"{__class__}.parse() text={text}")
             for func in self.text_transforms:
                 text = func(text)
             if not text and self.skip_empty_lines:

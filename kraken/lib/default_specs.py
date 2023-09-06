@@ -17,6 +17,25 @@ Default VGSL specs and hyperparameters
 """
 
 SEGMENTATION_SPEC = '[1,1800,0,3 Cr7,7,64,2,2 Gn32 Cr3,3,128,2,2 Gn32 Cr3,3,128 Gn32 Cr3,3,256 Gn32 Cr3,3,256 Gn32 Lbx32 Lby32 Cr1,1,32 Gn32 Lby32 Lbx32]' # NOQA
+
+# For first, non-VGSL params, look at lib/train.py
+# 1: batch
+# 120: height
+# 0: width
+# 1: channel
+# Cr3,13,32: 3x13 conv., 32 outputs                      |
+# Do0.1,2: Dropout layer with p=0.1 in 2 dimensions      | x 2
+# Mp2,2: Maxpool 2x2 rectangle                           |
+# Cr3,9,64: 3x9 conv., 64 outputs
+# Do0.1,2: Dropout layer with p=0.1 in 2 dimensions
+# Mp2,2: Maxpool 2x2 rectangle
+# Cr3,9,64: 9x3 conv., 64 outputs
+# Do0.1,2: Dropout layer with p=0.1 in 2 dimensions
+# S1(1x0)1,3: Split dimension 1, move one part to another (???)
+# Lbx200: Bidirectional LSTM on the x-dimension with 200 outputs |
+# Do0.1,2: Dropout layer with p=0.1 in 2 dimensions              | x 2
+# Lbx200: Bidirectional LSTM on the x-dimension with 200 outputs
+# Do: Dropout laye with p=.5 in 1 dimension
 RECOGNITION_SPEC = '[1,120,0,1 Cr3,13,32 Do0.1,2 Mp2,2 Cr3,13,32 Do0.1,2 Mp2,2 Cr3,9,64 Do0.1,2 Mp2,2 Cr3,9,64 Do0.1,2 S1(1x0)1,3 Lbx200 Do0.1,2 Lbx200 Do0.1,2 Lbx200 Do]' # NOQA
 
 RECOGNITION_PRETRAIN_HYPER_PARAMS = {'pad': 16,
@@ -53,10 +72,10 @@ RECOGNITION_PRETRAIN_HYPER_PARAMS = {'pad': 16,
 
 RECOGNITION_HYPER_PARAMS = {'pad': 16,
                             'freq': 1.0,
-                            'batch_size': 1,
+                            'batch_size': 16,
                             'quit': 'early',
                             'epochs': -1,
-                            'min_epochs': 0,
+                            'min_epochs': 5500,
                             'lag': 10,
                             'min_delta': None,
                             'optimizer': 'Adam',
@@ -65,7 +84,7 @@ RECOGNITION_HYPER_PARAMS = {'pad': 16,
                             'weight_decay': 0.0,
                             'schedule': 'constant',
                             'normalization': None,
-                            'normalize_whitespace': True,
+                            'normalize_whitespace': False,
                             'completed_epochs': 0,
                             'augment': False,
                             # lr scheduler params
