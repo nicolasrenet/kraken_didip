@@ -16,6 +16,16 @@
 Default VGSL specs and hyperparameters
 """
 
+# 1,1000,0,3 batch of 1, height=1000, 0 width (variable), 3 channels
+# cr7,7,64,2,2: 7x7x64 convolution (relu) with 2x2 stride 
+# Gn32: group normalization (32 groups, each normalized separately)
+# cr3,3,128,2,2: 7x7x64 convolution (relu) with 2x2 stride 
+# Gn32: group normalization 
+# ... (series of 3x3 conv., with 256 features maps as an output) ...
+# Lbx32: recurrent layer (x-axis).
+# Lby32: recurrent layer (y-axis).
+# Cr1,1,32: 
+
 SEGMENTATION_SPEC = '[1,1800,0,3 Cr7,7,64,2,2 Gn32 Cr3,3,128,2,2 Gn32 Cr3,3,128 Gn32 Cr3,3,256 Gn32 Cr3,3,256 Gn32 Lbx32 Lby32 Cr1,1,32 Gn32 Lby32 Lbx32]' # NOQA
 
 # For first, non-VGSL params, look at lib/train.py
